@@ -316,9 +316,6 @@ impl_from_fraction_for_fraction!(u16, u128);
 impl_from_fraction_for_fraction!(u32, u128);
 impl_from_fraction_for_fraction!(u64, u128);
 
-impl_from_fraction_for_fraction!(u8,  usize);
-impl_from_fraction_for_fraction!(u16, usize);
-
 impl<T: FractionTerm + Display> Display for Fraction<T> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
