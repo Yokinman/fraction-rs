@@ -4,7 +4,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Sub, Mul, Div, Neg};
 
 /// ...
-pub trait FractionTerm: PartialOrd + Copy {
+pub trait FractionTerm: PartialOrd + Copy + private::Sealed {
 	const MAX_TERM_COUNT: usize;
 	fn from_f64(num: f64) -> Self;
 	fn into_f64(self) -> f64;
@@ -20,6 +20,7 @@ mod private {
 
 macro_rules! impl_fraction_term {
 	($type:ty) => {
+		impl private::Sealed for $type {}
 		impl FractionTerm for $type {
 			const MAX_TERM_COUNT: usize = (1 + ((Self::MAX.ilog2() + 1) / 2)) as usize;
 			
@@ -60,7 +61,6 @@ impl_fraction_term!(u16);
 impl_fraction_term!(u32);
 impl_fraction_term!(u64);
 impl_fraction_term!(u128);
-impl_fraction_term!(usize);
 
 /// ...
 #[derive(Debug, Clone)]
