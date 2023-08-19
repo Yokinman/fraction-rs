@@ -63,7 +63,7 @@ impl_fraction_term!(u64);
 impl_fraction_term!(u128);
 
 /// ...
-#[derive(Debug, Clone)]
+#[derive(Clone, Hash, Debug)]
 pub enum Fraction<T: FractionTerm> {
 	Pos(T, T),
 	Neg(T, T),
@@ -151,6 +151,12 @@ impl<T: FractionTerm> Fraction<T> {
 			Self::Pos(n, d) =>  n.into_f64() / d.into_f64(),
 			Self::Neg(n, d) => -n.into_f64() / d.into_f64(),
 		}
+	}
+}
+
+impl<T: FractionTerm> Default for Fraction<T> {
+	fn default() -> Self {
+		Self::Pos(T::from_f64(1.0), T::from_f64(1.0))
 	}
 }
 
