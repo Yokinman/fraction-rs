@@ -259,47 +259,44 @@ impl<T: FractionTerm> Neg for Fraction<T> {
 }
 
 impl<T: FractionTerm> From<f32> for Fraction<T> {
+	//! Generates the closest fraction within the integer type's bounds.
+	
 	fn from(value: f32) -> Self {
 		Fraction::from(value as f64)
 	}
 }
 
 impl<T: FractionTerm> From<f64> for Fraction<T> {
+	//! Generates the closest fraction within the integer type's bounds.
+	//! 
+	//! # Examples
+	//! 
+	//! ```
+	//! use fraction::Fraction;
+	//! assert_eq!("1/3",      format!("{}", Fraction::<u8> ::from(0.333_f64)));
+	//! assert_eq!("333/1000", format!("{}", Fraction::<u16>::from(0.333_f64)));
+	//! assert_eq!("-50/1",    format!("{}", Fraction::<u64>::from(-50_f32)));
+	//! assert_eq!("22/7",     format!("{}", Fraction::<u8> ::from(std::f64::consts::PI)));
+	//! ```
+	
 	fn from(mut num: f64) -> Self {
-		/*!
-			Returns an approximate fraction for the given number, saturating to the type's bounds.
-			
-			# Algorithm
-			
-			```text
-			f(x) = 1 / (f(x-1) - r(x-1))
-			r(x) = round(f(x))
-			f(0) = number
-			     = r(0) ± 1/(r(1) ± 1/(r(2) ..))
-			
-			Ex:
-				f(0)=1.55, f(1)=2.222, f(2)=4.5, f(3)=2
-				Depending on the integer type, this result may be 31/20, 14/9, 3/2, or 2/1.
-				
-				        1             1         -9   31
-				2 - ————————— = 2 - ————— = 2 + —— = —— = 1.55
-				          1             2       20   20
-				    2 + —————       2 + —
-				            1           9
-				        4 + —
-				            2
-			```
-			
-			# Examples
-			
-			```
-			use fraction::Fraction;
-			assert_eq!("1/3",      format!("{}", Fraction::<u8> ::from(0.333_f64)));
-			assert_eq!("333/1000", format!("{}", Fraction::<u16>::from(0.333_f64)));
-			assert_eq!("-50/1",    format!("{}", Fraction::<u64>::from(-50_f32)));
-			assert_eq!("22/7",     format!("{}", Fraction::<u8> ::from(std::f64::consts::PI)));
-			```
-		*/
+		// # Algorithm
+		// 
+		// f(x) = 1 / (f(x-1) - r(x-1))
+		// r(x) = round(f(x))
+		// f(0) = number
+		//      = r(0) ± 1/(r(1) ± 1/(r(2) ..))
+		// 
+		// Ex:
+		// 
+		// f(0) = 4.0155, f(1) = 66.66.., f(2) = -3
+		// In this case, the result is either 803/200 <u16> or 4/1 <u8>.
+		// 
+		//        1          3    803
+		// 4 + —————— = 4 + ——— = ——— = 4.015
+		//          1       200   200
+		//     67 - —
+		//          3
 		
 		if num.is_nan() {
 			return Self::Pos(T::from_f64(0.0), T::from_f64(0.0))
@@ -343,15 +340,15 @@ impl<T: FractionTerm> From<f64> for Fraction<T> {
 	}
 }
 
-impl<T: FractionTerm> From<Fraction<T>> for f64 {
-	fn from(value: Fraction<T>) -> Self {
-		value.to_f64()
-	}
-}
-
 impl<T: FractionTerm> From<Fraction<T>> for f32 {
 	fn from(value: Fraction<T>) -> Self {
 		value.to_f64() as f32
+	}
+}
+
+impl<T: FractionTerm> From<Fraction<T>> for f64 {
+	fn from(value: Fraction<T>) -> Self {
+		value.to_f64()
 	}
 }
 
