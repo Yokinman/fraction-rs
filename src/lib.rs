@@ -9,7 +9,7 @@ pub trait FracTerm: PartialOrd + Copy + private::Sealed {
 	const MAX_TERM_COUNT: usize;
 	
 	fn from_f64(num: f64) -> Self;
-	fn into_f64(self) -> f64;
+	fn to_f64(self) -> f64;
 	
 	fn checked_add(self, rhs: Self) -> Option<Self>;
 	fn checked_sub(self, rhs: Self) -> Option<Self>;
@@ -36,7 +36,7 @@ macro_rules! impl_fraction_term {
 			const MAX_TERM_COUNT: usize = (1 + ((Self::MAX.ilog2() + 1) / 2)) as usize;
 			
 			fn from_f64(num: f64) -> Self { num as Self }
-			fn into_f64(self) -> f64 { self as f64 }
+			fn to_f64(self) -> f64 { self as f64 }
 			
 			fn checked_add(self, rhs: Self) -> Option<Self> { self.checked_add(rhs) }
 			fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
@@ -136,13 +136,6 @@ impl<T: FracTerm> Frac<T> {
 	pub fn checked_div(self, frac: Self) -> Option<Self> {
 		self.checked_mul(frac.recip())
 	}
-	
-	pub fn to_f64(&self) -> f64 {
-		match self {
-			Self::Pos(n, d) =>  n.into_f64() / d.into_f64(),
-			Self::Neg(n, d) => -n.into_f64() / d.into_f64(),
-		}
-	}
 }
 
 impl<T: FracTerm> Default for Frac<T> {
@@ -151,12 +144,18 @@ impl<T: FracTerm> Default for Frac<T> {
 	}
 }
 
-impl<T: FracTerm> From<Frac<T>> for (T, T) {
-	fn from(value: Frac<T>) -> Self {
-		match value {
+impl<T: FracTerm> From<&Frac<T>> for (T, T) {
+	fn from(value: &Frac<T>) -> Self {
+		match *value {
 			Frac::Pos(n, d) => (n, d),
 			Frac::Neg(n, d) => (n, d),
 		}
+	}
+}
+
+impl<T: FracTerm> From<Frac<T>> for (T, T) {
+	fn from(value: Frac<T>) -> Self {
+		<(T, T)>::from(&value)
 	}
 }
 
@@ -172,8 +171,8 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Self> for Frac<T> {
 	//! - A/B <> C/D === AD <> CB
 	
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		let (mut s_n, mut s_d) = (*self).into();
-		let (mut o_n, mut o_d) = (*other).into();
+		let (mut s_n, mut s_d) = self.into();
+		let (mut o_n, mut o_d) = other.into();
 		
 		 // Zero Comparison (±0/0 != ±0/0, ±0/A == ±0/B)
 		let zero = T::from_f64(0.0);
@@ -305,7 +304,7 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 		
 		let mut term_list: Vec<Self> = Vec::with_capacity(T::MAX_TERM_COUNT);
 		
-		let mut limit = T::from_f64(f64::INFINITY).into_f64();
+		let mut limit = T::from_f64(f64::INFINITY).to_f64();
 		
 		let one = T::from_f64(1.0);
 		
@@ -341,15 +340,24 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 	}
 }
 
+impl<T: FracTerm> From<&Frac<T>> for f64 {
+	fn from(value: &Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(n, d) =>  n.to_f64() / d.to_f64(),
+			Frac::Neg(n, d) => -n.to_f64() / d.to_f64(),
+		}
+	}
+}
+
 impl<T: FracTerm> From<Frac<T>> for f32 {
 	fn from(value: Frac<T>) -> Self {
-		value.to_f64() as f32
+		<f64>::from(&value) as f32
 	}
 }
 
 impl<T: FracTerm> From<Frac<T>> for f64 {
 	fn from(value: Frac<T>) -> Self {
-		value.to_f64()
+		<f64>::from(&value)
 	}
 }
 
@@ -407,9 +415,9 @@ mod tests {
 					assert!(v < (n+1.0)/d);
 				}
 			}
-			assert_eq!(Frac::<I>::from(f64::INFINITY).to_f64(), I::from_f64(f64::INFINITY).into_f64());
-			assert_eq!(Frac::<I>::from(f64::NEG_INFINITY).to_f64(), -I::from_f64(f64::INFINITY).into_f64());
-			assert!(Frac::<I>::from(f64::NAN).to_f64().is_nan());
+			assert_eq!(<f64>::from(Frac::<I>::from(f64::INFINITY)), I::from_f64(f64::INFINITY).to_f64());
+			assert_eq!(<f64>::from(Frac::<I>::from(f64::NEG_INFINITY)), -I::from_f64(f64::INFINITY).to_f64());
+			assert!(<f64>::from(Frac::<I>::from(f64::NAN)).is_nan());
 		}
 		assert::<u8>();
 		assert::<u64>();
