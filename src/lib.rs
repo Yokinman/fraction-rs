@@ -1,18 +1,31 @@
-//! For representing real numbers as fractions using integer types.
+//! Representing real numbers as fractions using integer types.
 
+#![allow(clippy::tabs_in_doc_comments)]
+
+use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Sub, Mul, Div, Neg};
 
 /// ...
 pub trait FractionTerm: PartialOrd + Copy + private::Sealed {
 	const MAX_TERM_COUNT: usize;
+	
 	fn from_f64(num: f64) -> Self;
 	fn into_f64(self) -> f64;
+	
 	fn checked_add(self, rhs: Self) -> Option<Self>;
 	fn checked_sub(self, rhs: Self) -> Option<Self>;
 	fn checked_mul(self, rhs: Self) -> Option<Self>;
 	fn checked_div(self, rhs: Self) -> Option<Self>;
-	fn gcd(self, divisor: Self) -> Self;
+	fn checked_rem(self, rhs: Self) -> Option<Self>;
+	
+	fn gcd(mut self, mut other: Self) -> Self {
+		while let Some(rem) = self.checked_rem(other) {
+			self = other;
+			other = rem;
+		}
+		self
+	}
 }
 mod private {
     pub trait Sealed {}
@@ -24,34 +37,14 @@ macro_rules! impl_fraction_term {
 		impl FractionTerm for $type {
 			const MAX_TERM_COUNT: usize = (1 + ((Self::MAX.ilog2() + 1) / 2)) as usize;
 			
-			fn from_f64(num: f64) -> Self {
-				num as Self
-			}
-			fn into_f64(self) -> f64 {
-				self as f64
-			}
+			fn from_f64(num: f64) -> Self { num as Self }
+			fn into_f64(self) -> f64 { self as f64 }
 			
-			fn checked_add(self, rhs: Self) -> Option<Self> {
-				self.checked_add(rhs)
-			}
-			fn checked_sub(self, rhs: Self) -> Option<Self> {
-				self.checked_sub(rhs)
-			}
-			fn checked_mul(self, rhs: Self) -> Option<Self> {
-				self.checked_mul(rhs)
-			}
-			fn checked_div(self, rhs: Self) -> Option<Self> {
-				self.checked_div(rhs)
-			}
-			
-			fn gcd(mut self, mut divisor: Self) -> Self {
-				while self != 0 {
-					let temp = self;
-					self = divisor % self;
-					divisor = temp;
-				}
-				divisor
-			}
+			fn checked_add(self, rhs: Self) -> Option<Self> { self.checked_add(rhs) }
+			fn checked_sub(self, rhs: Self) -> Option<Self> { self.checked_sub(rhs) }
+			fn checked_mul(self, rhs: Self) -> Option<Self> { self.checked_mul(rhs) }
+			fn checked_div(self, rhs: Self) -> Option<Self> { self.checked_div(rhs) }
+			fn checked_rem(self, rhs: Self) -> Option<Self> { self.checked_rem(rhs) }
 		}
 	}
 }
@@ -63,7 +56,7 @@ impl_fraction_term!(u64);
 impl_fraction_term!(u128);
 
 /// ...
-#[derive(Clone, Hash, Debug)]
+#[derive(Clone, Debug)]
 pub enum Fraction<T: FractionTerm> {
 	Pos(T, T),
 	Neg(T, T),
@@ -84,7 +77,7 @@ impl<T: FractionTerm> Fraction<T> {
 		}
 	}
 	
-	pub fn signum(&self) -> i8 {
+	pub fn signum(&self) -> i32 {
 		match self {
 			Self::Pos(..) =>  1,
 			Self::Neg(..) => -1,
@@ -157,6 +150,73 @@ impl<T: FractionTerm> Fraction<T> {
 impl<T: FractionTerm> Default for Fraction<T> {
 	fn default() -> Self {
 		Self::Pos(T::from_f64(1.0), T::from_f64(1.0))
+	}
+}
+
+impl<T: FractionTerm> From<Fraction<T>> for (T, T) {
+	fn from(value: Fraction<T>) -> Self {
+		(value.numer(), value.denom())
+	}
+}
+
+impl<T: FractionTerm> PartialEq<Self> for Fraction<T> {
+	fn eq(&self, other: &Self) -> bool {
+		self.partial_cmp(other) == Some(Ordering::Equal)
+	}
+}
+
+impl<T: FractionTerm + PartialOrd> PartialOrd<Self> for Fraction<T> {
+	//! - 0/0 != 0/0
+	//! - A/N <> B/N === A <> B
+	//! - A/B <> C/D === AD <> CB
+	
+	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+		let (mut s_n, mut s_d) = self.clone().into();
+		let (mut o_n, mut o_d) = other.clone().into();
+		
+		 // Zero Comparison (±0/0 != ±0/0, ±0/A == ±0/B)
+		let zero = T::from_f64(0.0);
+		if s_n == zero && o_n == zero {
+			return if s_n == s_d || o_n == o_d {
+				None
+			} else {
+				Some(Ordering::Equal)
+			}
+		}
+		
+		 // Sign Comparison (-A/B <= +C/D):
+		let sign_order = self.signum().cmp(&other.signum());
+		if sign_order != Ordering::Equal {
+			return Some(sign_order)
+		}
+		
+		 // Negative Swap (-A/B <> -C/D === A/B <> C/D):
+		if let Self::Neg(..) = self {
+			std::mem::swap(&mut s_n, &mut o_n);
+			std::mem::swap(&mut s_d, &mut o_d);
+		}
+		
+		 // Numerator Comparison (A/N <> B/N === A <> B):
+		if s_d == o_d {
+			return s_n.partial_cmp(&o_n)
+		}
+		
+		 // Continued Comparison:
+		loop {
+			// 22/7 <> 18/5 => 3[1/7] <> 3[3/5] (3=3, try remainder reciprocals)
+			//  5/3 <>  7/1 => 1[1/3] <> 7[0/1] (1<7 === 22/7 < 18/5)
+			let s_r = s_n.checked_div(s_d);
+			let o_r = o_n.checked_div(o_d);
+			if let (Some(s_r), Some(o_r)) = (s_r, o_r) {
+				if s_r != o_r {
+					break s_r.partial_cmp(&o_r)
+				}
+			} else {
+				break o_r.partial_cmp(&s_r)
+			}
+			s_n = std::mem::replace(&mut o_d, s_n.checked_rem(s_d)?);
+			o_n = std::mem::replace(&mut s_d, o_n.checked_rem(s_n)?);
+		}
 	}
 }
 
@@ -336,7 +396,7 @@ mod tests {
 	use super::*;
 	
 	#[test]
-	fn accuracy() {
+	fn conversion() {
 		fn assert<I: FractionTerm + Display>() {
 			for n in 1..=100 {
 				for d in 1..=100 {
@@ -366,5 +426,24 @@ mod tests {
 		assert_eq!("8/6",    format!("{}", Fraction::Pos(4_u128, 6) + Fraction::Pos(2, 3)));
 		assert_eq!("112/6",  format!("{}", Fraction::Pos(8_u8, 3) * Fraction::Pos(14, 2)));
 		assert_eq!("-10/50", format!("{}", Fraction::Neg(1_u8, 10) / Fraction::Pos(5, 10)));
+	}
+	
+	#[test]
+	fn comparison() {
+		assert_eq!(Fraction::Pos(5_u8, 5), Fraction::Pos(5_u8, 5));
+		assert_eq!(Fraction::Neg(1_u8, 10), Fraction::Neg(2_u8, 20));
+		assert!(Fraction::Pos(1_u8, 10) > Fraction::Neg(2_u8, 20));
+		assert!(Fraction::Neg(1_u8, 10) < Fraction::Pos(2_u8, 20));
+		assert!(Fraction::Neg(1_u8, 10) > Fraction::Neg(3_u8, 20));
+		assert!(Fraction::Neg(1_u8, 10) < Fraction::Neg(1_u8, 20));
+		assert_eq!(Fraction::Pos(u128::MAX - 1, u128::MAX), Fraction::Pos(u128::MAX - 1, u128::MAX));
+		assert!(Fraction::Pos(u128::MAX - 1, u128::MAX) < Fraction::Pos(u128::MAX - 1, u128::MAX - 1));
+		assert_eq!(Fraction::Pos(1_u8, 0), Fraction::Pos(1_u8, 0));
+		assert!(Fraction::Pos(2_u8, 0) > Fraction::Pos(1_u8, 0));
+		assert!(Fraction::Pos(1_u8, 0) > Fraction::Pos(1_u8, 1));
+		assert_eq!(Fraction::Pos(0_u8, 1), Fraction::Pos(0_u8, 2));
+		assert_eq!(Fraction::Pos(0_u8, 1), Fraction::Neg(0_u8, 1));
+		assert_ne!(Fraction::Pos(0_u8, 0), Fraction::Pos(0_u8, 0));
+		assert_ne!(Fraction::Pos(0_u8, 0), Fraction::Neg(0_u8, 0));
 	}
 }
