@@ -82,6 +82,20 @@ impl<T: FracTerm> Frac<T> {
 		}
 	}
 	
+	pub fn is_sign_positive(&self) -> bool {
+		match self {
+			Frac::Pos(..) => true,
+			Frac::Neg(..) => false,
+		}
+	}
+	
+	pub fn is_sign_negative(&self) -> bool {
+		match self {
+			Frac::Pos(..) => false,
+			Frac::Neg(..) => true,
+		}
+	}
+	
 	pub fn recip(mut self) -> Self {
 		match &mut self {
 			Frac::Pos(n, d) => std::mem::swap(n, d),
