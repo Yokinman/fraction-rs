@@ -208,28 +208,32 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Self> for Frac<T> {
 impl<T: FracTerm> Add for Frac<T> {
 	type Output = Self;
 	fn add(self, rhs: Self) -> Self::Output {
-		self.checked_add(rhs).unwrap()
+		self.checked_add(rhs)
+			.expect("overflow when adding fractions")
 	}
 }
 
 impl<T: FracTerm> Sub for Frac<T> {
 	type Output = Self;
 	fn sub(self, rhs: Self) -> Self::Output {
-		self.checked_sub(rhs).unwrap()
+		self.checked_sub(rhs)
+			.expect("overflow when subtracting fractions")
 	}
 }
 
 impl<T: FracTerm> Mul for Frac<T> {
 	type Output = Self;
 	fn mul(self, rhs: Self) -> Self::Output {
-		self.checked_mul(rhs).unwrap()
+		self.checked_mul(rhs)
+			.expect("overflow when multiplying fractions")
 	}
 }
 
 impl<T: FracTerm> Div for Frac<T> {
 	type Output = Self;
 	fn div(self, rhs: Self) -> Self::Output {
-		self.checked_div(rhs).unwrap()
+		self.checked_div(rhs)
+			.expect("overflow when dividing fractions")
 	}
 }
 
