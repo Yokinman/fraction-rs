@@ -63,101 +63,109 @@ pub enum Frac<T: FracTerm> {
 impl<T: FracTerm> Frac<T> {
 	pub fn numer(&self) -> T {
 		match *self {
-			Self::Pos(n, _) => n,
-			Self::Neg(n, _) => n,
+			Frac::Pos(n, _) => n,
+			Frac::Neg(n, _) => n,
 		}
 	}
 	
 	pub fn denom(&self) -> T {
 		match *self {
-			Self::Pos(_, d) => d,
-			Self::Neg(_, d) => d,
+			Frac::Pos(_, d) => d,
+			Frac::Neg(_, d) => d,
 		}
 	}
 	
 	pub fn signum(&self) -> i32 {
 		match self {
-			Self::Pos(..) =>  1,
-			Self::Neg(..) => -1,
+			Frac::Pos(..) =>  1,
+			Frac::Neg(..) => -1,
 		}
 	}
 	
 	pub fn recip(mut self) -> Self {
 		match &mut self {
-			Self::Pos(n, d) => std::mem::swap(n, d),
-			Self::Neg(n, d) => std::mem::swap(n, d),
+			Frac::Pos(n, d) => std::mem::swap(n, d),
+			Frac::Neg(n, d) => std::mem::swap(n, d),
 		}
 		self
 	}
 	
-	pub fn checked_add(self, frac: Self) -> Option<Self> {
-		let d_gcd = self.denom().gcd(frac.denom());
-		let rhs_m = self.denom().checked_div(d_gcd).unwrap_or(T::from_f64(1.0));
-		let rhs_n = frac.numer().checked_mul(rhs_m)?;
-		let lhs_m = frac.denom().checked_div(d_gcd).unwrap_or(T::from_f64(1.0));
-		let lhs_n = self.numer().checked_mul(lhs_m)?;
-		let new_d = self.denom().checked_mul(lhs_m)?;
-		Some(
-			match (self, frac) {
-				(Self::Pos(..), Self::Pos(..)) => Self::Pos(lhs_n.checked_add(rhs_n)?, new_d),
-				(Self::Neg(..), Self::Neg(..)) => Self::Neg(lhs_n.checked_add(rhs_n)?, new_d),
-				(Self::Pos(..), Self::Neg(..)) => {
-					if lhs_n >= rhs_n {
-						Self::Pos(lhs_n.checked_sub(rhs_n)?, new_d)
-					} else {
-						Self::Neg(rhs_n.checked_sub(lhs_n)?, new_d)
-					}
-				},
-				(Self::Neg(..), Self::Pos(..)) => {
-					if lhs_n >= rhs_n {
-						Self::Neg(lhs_n.checked_sub(rhs_n)?, new_d)
-					} else {
-						Self::Pos(rhs_n.checked_sub(lhs_n)?, new_d)
-					}
-				},
-			}
-		)
-	}
-	
-	pub fn checked_sub(self, frac: Self) -> Option<Self> {
-		self.checked_add(-frac)
-	}
-	
-	pub fn checked_mul(self, frac: Self) -> Option<Self> {
-		let n = self.numer().checked_mul(frac.numer())?;
-		let d = self.denom().checked_mul(frac.denom())?;
-		if self.signum() == frac.signum() {
-			Some(Self::Pos(n, d))
-		} else {
-			Some(Self::Neg(n, d))
+	pub fn checked_add(self, other: Frac<T>) -> Option<Frac<T>> {
+		let (s_n, s_d) = self.into();
+		let (o_n, o_d) = other.into();
+		
+		let d_gcd = s_d.gcd(o_d);
+		let s_m = o_d.checked_div(d_gcd).unwrap_or(T::from_f64(1.0));
+		let o_m = s_d.checked_div(d_gcd).unwrap_or(T::from_f64(1.0));
+		let s_n = s_n.checked_mul(s_m)?;
+		let o_n = o_n.checked_mul(o_m)?;
+		let d   = s_d.checked_mul(s_m)?;
+		
+		match (self, other) {
+			(Frac::Pos(..), Frac::Pos(..)) => {
+				Some(Frac::Pos(s_n.checked_add(o_n)?, d))
+			},
+			(Frac::Neg(..), Frac::Neg(..)) => {
+				Some(Frac::Neg(s_n.checked_add(o_n)?, d))
+			},
+			(Frac::Pos(..), Frac::Neg(..)) => {
+				if s_n >= o_n {
+					Some(Frac::Pos(s_n.checked_sub(o_n)?, d))
+				} else {
+					Some(Frac::Neg(o_n.checked_sub(s_n)?, d))
+				}
+			},
+			(Frac::Neg(..), Frac::Pos(..)) => {
+				if s_n >= o_n {
+					Some(Frac::Neg(s_n.checked_sub(o_n)?, d))
+				} else {
+					Some(Frac::Pos(o_n.checked_sub(s_n)?, d))
+				}
+			},
 		}
 	}
 	
-	pub fn checked_div(self, frac: Self) -> Option<Self> {
+	pub fn checked_sub(self, other: Frac<T>) -> Option<Frac<T>> {
+		self.checked_add(-other)
+	}
+	
+	pub fn checked_mul(self, other: Frac<T>) -> Option<Frac<T>> {
+		let (s_n, s_d, s_s) = self.into();
+		let (o_n, o_d, o_s) = other.into();
+		let n = s_n.checked_mul(o_n)?;
+		let d = s_d.checked_mul(o_d)?;
+		if s_s == o_s {
+			Some(Frac::Pos(n, d))
+		} else {
+			Some(Frac::Neg(n, d))
+		}
+	}
+	
+	pub fn checked_div(self, frac: Frac<T>) -> Option<Frac<T>> {
 		self.checked_mul(frac.recip())
 	}
 }
 
 impl<T: FracTerm> Default for Frac<T> {
-	fn default() -> Self {
-		Self::Pos(T::from_f64(1.0), T::from_f64(1.0))
+	fn default() -> Frac<T> {
+		Frac::Pos(T::from_f64(1.0), T::from_f64(1.0))
 	}
 }
 
-impl<T: FracTerm> PartialEq<Self> for Frac<T> {
-	fn eq(&self, other: &Self) -> bool {
+impl<T: FracTerm> PartialEq<Frac<T>> for Frac<T> {
+	fn eq(&self, other: &Frac<T>) -> bool {
 		self.partial_cmp(other) == Some(Ordering::Equal)
 	}
 }
 
-impl<T: FracTerm + PartialOrd> PartialOrd<Self> for Frac<T> {
+impl<T: FracTerm + PartialOrd> PartialOrd<Frac<T>> for Frac<T> {
 	//! - 0/0 != 0/0
 	//! - A/N <> B/N === A <> B
 	//! - A/B <> C/D === AD <> CB
 	
-	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		let (mut s_n, mut s_d) = self.into();
-		let (mut o_n, mut o_d) = other.into();
+	fn partial_cmp(&self, other: &Frac<T>) -> Option<Ordering> {
+		let (mut s_n, mut s_d, s_s) = self.into();
+		let (mut o_n, mut o_d, o_s) = other.into();
 		
 		 // Zero Comparison (±0/0 != ±0/0, ±0/A == ±0/B)
 		let zero = T::from_f64(0.0);
@@ -170,13 +178,12 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Self> for Frac<T> {
 		}
 		
 		 // Sign Comparison (-A/B <= +C/D):
-		let sign_order = self.signum().cmp(&other.signum());
-		if sign_order != Ordering::Equal {
-			return Some(sign_order)
+		if s_s != o_s {
+			return s_s.partial_cmp(&o_s)
 		}
 		
 		 // Negative Swap (-A/B <> -C/D === A/B <> C/D):
-		if let Self::Neg(..) = self {
+		if s_s.is_negative() {
 			std::mem::swap(&mut s_n, &mut o_n);
 			std::mem::swap(&mut s_d, &mut o_d);
 		}
@@ -207,7 +214,7 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Self> for Frac<T> {
 
 impl<T: FracTerm> Add for Frac<T> {
 	type Output = Self;
-	fn add(self, rhs: Self) -> Self::Output {
+	fn add(self, rhs: Frac<T>) -> Self {
 		self.checked_add(rhs)
 			.expect("overflow when adding fractions")
 	}
@@ -215,7 +222,7 @@ impl<T: FracTerm> Add for Frac<T> {
 
 impl<T: FracTerm> Sub for Frac<T> {
 	type Output = Self;
-	fn sub(self, rhs: Self) -> Self::Output {
+	fn sub(self, rhs: Frac<T>) -> Self {
 		self.checked_sub(rhs)
 			.expect("overflow when subtracting fractions")
 	}
@@ -223,7 +230,7 @@ impl<T: FracTerm> Sub for Frac<T> {
 
 impl<T: FracTerm> Mul for Frac<T> {
 	type Output = Self;
-	fn mul(self, rhs: Self) -> Self::Output {
+	fn mul(self, rhs: Frac<T>) -> Self {
 		self.checked_mul(rhs)
 			.expect("overflow when multiplying fractions")
 	}
@@ -231,7 +238,7 @@ impl<T: FracTerm> Mul for Frac<T> {
 
 impl<T: FracTerm> Div for Frac<T> {
 	type Output = Self;
-	fn div(self, rhs: Self) -> Self::Output {
+	fn div(self, rhs: Frac<T>) -> Self {
 		self.checked_div(rhs)
 			.expect("overflow when dividing fractions")
 	}
@@ -239,17 +246,17 @@ impl<T: FracTerm> Div for Frac<T> {
 
 impl<T: FracTerm> Neg for Frac<T> {
 	type Output = Self;
-	fn neg(self) -> Self::Output {
+	fn neg(self) -> Self {
 		match self {
-			Self::Pos(n, d) => Self::Neg(n, d),
-			Self::Neg(n, d) => Self::Pos(n, d),
+			Frac::Pos(n, d) => Frac::Neg(n, d),
+			Frac::Neg(n, d) => Frac::Pos(n, d),
 		}
 	}
 }
 
 impl<T: FracTerm> Mul<i32> for Frac<T> {
 	type Output = Self;
-	fn mul(mut self, rhs: i32) -> Self::Output {
+	fn mul(mut self, rhs: i32) -> Self {
 		let (n, _) = <(&mut T, _)>::from(&mut self);
 		
 		*n = n.checked_mul(T::from_f64(rhs.abs() as f64))
@@ -265,14 +272,14 @@ impl<T: FracTerm> Mul<i32> for Frac<T> {
 
 impl<T: FracTerm> Mul<Frac<T>> for i32 {
 	type Output = Frac<T>;
-	fn mul(self, rhs: Frac<T>) -> Self::Output {
+	fn mul(self, rhs: Frac<T>) -> Frac<T> {
 		rhs * self
 	}
 }
 
 impl<T: FracTerm> Div<i32> for Frac<T> {
 	type Output = Self;
-	fn div(mut self, rhs: i32) -> Self::Output {
+	fn div(mut self, rhs: i32) -> Self {
 		let (_, d) = <(_, &mut T)>::from(&mut self);
 		
 		*d = d.checked_mul(T::from_f64(rhs.abs() as f64))
@@ -288,7 +295,7 @@ impl<T: FracTerm> Div<i32> for Frac<T> {
 
 impl<T: FracTerm> Div<Frac<T>> for i32 {
 	type Output = Frac<T>;
-	fn div(self, rhs: Frac<T>) -> Self::Output {
+	fn div(self, rhs: Frac<T>) -> Frac<T> {
 		self * rhs.recip()
 	}
 }
@@ -296,7 +303,7 @@ impl<T: FracTerm> Div<Frac<T>> for i32 {
 impl<T: FracTerm> From<f32> for Frac<T> {
 	//! Generates the closest fraction within the integer type's bounds.
 	
-	fn from(value: f32) -> Self {
+	fn from(value: f32) -> Frac<T> {
 		Frac::from(value as f64)
 	}
 }
@@ -314,7 +321,7 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 	//! assert_eq!("22/7",     format!("{}", Frac::<u8> ::from(std::f64::consts::PI)));
 	//! ```
 	
-	fn from(mut num: f64) -> Self {
+	fn from(mut num: f64) -> Frac<T> {
 		// # Algorithm
 		// 
 		// f(x) = 1 / (f(x-1) - r(x-1))
@@ -334,10 +341,10 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 		//          3
 		
 		if num.is_nan() {
-			return Self::Pos(T::from_f64(0.0), T::from_f64(0.0))
+			return Frac::Pos(T::from_f64(0.0), T::from_f64(0.0))
 		}
 		
-		let mut term_list: Vec<Self> = Vec::with_capacity(T::MAX_TERM_COUNT);
+		let mut term_list: Vec<Frac<T>> = Vec::with_capacity(T::MAX_TERM_COUNT);
 		
 		let mut limit = T::from_f64(f64::INFINITY).to_f64();
 		
@@ -346,10 +353,10 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 		'generate: for _ in 0..T::MAX_TERM_COUNT {
 			let int = num.round();
 			if int.is_sign_positive() {
-				term_list.push(Self::Pos(T::from_f64(int), one));
+				term_list.push(Frac::Pos(T::from_f64(int), one));
 				limit /= int;
 			} else {
-				term_list.push(Self::Neg(T::from_f64(-int), one));
+				term_list.push(Frac::Neg(T::from_f64(-int), one));
 				limit /= -int;
 			}
 			if num == int || limit <= 1.0 {
@@ -376,7 +383,7 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 }
 
 impl<T: FracTerm> From<&Frac<T>> for f64 {
-	fn from(value: &Frac<T>) -> Self {
+	fn from(value: &Frac<T>) -> f64 {
 		match *value {
 			Frac::Pos(n, d) =>  n.to_f64() / d.to_f64(),
 			Frac::Neg(n, d) => -n.to_f64() / d.to_f64(),
@@ -385,13 +392,13 @@ impl<T: FracTerm> From<&Frac<T>> for f64 {
 }
 
 impl<T: FracTerm> From<Frac<T>> for f32 {
-	fn from(value: Frac<T>) -> Self {
+	fn from(value: Frac<T>) -> f32 {
 		<f64>::from(&value) as f32
 	}
 }
 
 impl<T: FracTerm> From<Frac<T>> for f64 {
-	fn from(value: Frac<T>) -> Self {
+	fn from(value: Frac<T>) -> f64 {
 		<f64>::from(&value)
 	}
 }
@@ -432,13 +439,40 @@ impl<T: FracTerm> From<&mut Frac<T>> for (T, T) {
 	}
 }
 
+impl<T: FracTerm> From<Frac<T>> for (T, T, i32) {
+	fn from(value: Frac<T>) -> Self {
+		match value {
+			Frac::Pos(n, d) => (n, d,  1),
+			Frac::Neg(n, d) => (n, d, -1),
+		}
+	}
+}
+
+impl<T: FracTerm> From<&Frac<T>> for (T, T, i32) {
+	fn from(value: &Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(n, d) => (n, d,  1),
+			Frac::Neg(n, d) => (n, d, -1),
+		}
+	}
+}
+
+impl<T: FracTerm> From<&mut Frac<T>> for (T, T, i32) {
+	fn from(value: &mut Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(n, d) => (n, d,  1),
+			Frac::Neg(n, d) => (n, d, -1),
+		}
+	}
+}
+
 macro_rules! impl_from_fraction_for_fraction {
 	($F:ty, $T:ty) => {
 		impl From<Frac<$F>> for Frac<$T>{
-			fn from(value: Frac<$F>) -> Self {
+			fn from(value: Frac<$F>) -> Frac<$T> {
 				match value {
-					Frac::<$F>::Pos(n, d) => Self::Pos(n.into(), d.into()),
-					Frac::<$F>::Neg(n, d) => Self::Neg(n.into(), d.into()),
+					Frac::<$F>::Pos(n, d) => Frac::Pos(n.into(), d.into()),
+					Frac::<$F>::Neg(n, d) => Frac::Neg(n.into(), d.into()),
 				}
 			}
 		}
@@ -462,8 +496,8 @@ impl_from_fraction_for_fraction!(u64, u128);
 impl<T: FracTerm + Display> Display for Frac<T> {
 	fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
 		match self {
-			Self::Pos(n, d) => write!(f,  "{}/{}", n, d),
-			Self::Neg(n, d) => write!(f, "-{}/{}", n, d),
+			Frac::Pos(n, d) => write!(f,  "{}/{}", n, d),
+			Frac::Neg(n, d) => write!(f, "-{}/{}", n, d),
 		}
 	}
 }
