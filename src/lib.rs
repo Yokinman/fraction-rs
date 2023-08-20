@@ -247,6 +247,29 @@ impl<T: FracTerm> Neg for Frac<T> {
 	}
 }
 
+impl<T: FracTerm> Mul<i32> for Frac<T> {
+	type Output = Self;
+	fn mul(mut self, rhs: i32) -> Self::Output {
+		let (n, _) = <(&mut T, _)>::from(&mut self);
+		
+		*n = n.checked_mul(T::from_f64(rhs.abs() as f64))
+			.expect("overflow when multiplying fraction by scalar");
+		
+		if rhs < 0 {
+			-self
+		} else {
+			self
+		}
+	}
+} 
+
+impl<T: FracTerm> Mul<Frac<T>> for i32 {
+	type Output = Frac<T>;
+	fn mul(self, rhs: Frac<T>) -> Self::Output {
+		rhs * self
+	}
+}
+
 impl<T: FracTerm> From<f32> for Frac<T> {
 	//! Generates the closest fraction within the integer type's bounds.
 	
@@ -457,6 +480,8 @@ mod tests {
 		assert_eq!("112/6",  format!("{}", Frac::Pos(8_u8, 3) * Frac::Pos(14, 2)));
 		assert_eq!("-10/50", format!("{}", Frac::Neg(1_u8, 10) / Frac::Pos(5, 10)));
 		assert_eq!("2/0",    format!("{}", Frac::Neg(4_u8, 0) + Frac::Pos(6_u8, 0)));
+		assert_eq!("-34/15", format!("{}", -2 * Frac::Pos(17_u8, 15)));
+		assert_eq!("-0/15",  format!("{}", Frac::Neg(17_u8, 15) * 0));
 	}
 	
 	#[test]
