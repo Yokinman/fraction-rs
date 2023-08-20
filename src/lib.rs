@@ -144,21 +144,6 @@ impl<T: FracTerm> Default for Frac<T> {
 	}
 }
 
-impl<T: FracTerm> From<&Frac<T>> for (T, T) {
-	fn from(value: &Frac<T>) -> Self {
-		match *value {
-			Frac::Pos(n, d) => (n, d),
-			Frac::Neg(n, d) => (n, d),
-		}
-	}
-}
-
-impl<T: FracTerm> From<Frac<T>> for (T, T) {
-	fn from(value: Frac<T>) -> Self {
-		<(T, T)>::from(&value)
-	}
-}
-
 impl<T: FracTerm> PartialEq<Self> for Frac<T> {
 	fn eq(&self, other: &Self) -> bool {
 		self.partial_cmp(other) == Some(Ordering::Equal)
@@ -358,6 +343,21 @@ impl<T: FracTerm> From<Frac<T>> for f32 {
 impl<T: FracTerm> From<Frac<T>> for f64 {
 	fn from(value: Frac<T>) -> Self {
 		<f64>::from(&value)
+	}
+}
+
+impl<T: FracTerm> From<&Frac<T>> for (T, T) {
+	fn from(value: &Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(n, d) => (n, d),
+			Frac::Neg(n, d) => (n, d),
+		}
+	}
+}
+
+impl<T: FracTerm> From<Frac<T>> for (T, T) {
+	fn from(value: Frac<T>) -> Self {
+		<(T, T)>::from(&value)
 	}
 }
 
