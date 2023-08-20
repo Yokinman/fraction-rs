@@ -1,7 +1,5 @@
 //! Representing real numbers as fractions using integer types.
 
-#![allow(clippy::tabs_in_doc_comments)]
-
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, Sub, Mul, Div, Neg};
@@ -56,7 +54,7 @@ impl_fraction_term!(u64);
 impl_fraction_term!(u128);
 
 /// ...
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 pub enum Fraction<T: FractionTerm> {
 	Pos(T, T),
 	Neg(T, T),
@@ -155,7 +153,10 @@ impl<T: FractionTerm> Default for Fraction<T> {
 
 impl<T: FractionTerm> From<Fraction<T>> for (T, T) {
 	fn from(value: Fraction<T>) -> Self {
-		(value.numer(), value.denom())
+		match value {
+			Fraction::Pos(n, d) => (n, d),
+			Fraction::Neg(n, d) => (n, d),
+		}
 	}
 }
 
@@ -171,8 +172,8 @@ impl<T: FractionTerm + PartialOrd> PartialOrd<Self> for Fraction<T> {
 	//! - A/B <> C/D === AD <> CB
 	
 	fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-		let (mut s_n, mut s_d) = self.clone().into();
-		let (mut o_n, mut o_d) = other.clone().into();
+		let (mut s_n, mut s_d) = (*self).into();
+		let (mut o_n, mut o_d) = (*other).into();
 		
 		 // Zero Comparison (±0/0 != ±0/0, ±0/A == ±0/B)
 		let zero = T::from_f64(0.0);
@@ -329,7 +330,7 @@ impl<T: FractionTerm> From<f64> for Fraction<T> {
 			while term_index != 0 {
 				term_index -= 1;
 				frac = frac.recip();
-				if let Some(new_frac) = frac.checked_add(term_list[term_index].clone()) {
+				if let Some(new_frac) = frac.checked_add(term_list[term_index]) {
 					frac = new_frac;
 					continue
 				}
@@ -417,12 +418,12 @@ mod tests {
 	
 	#[test]
 	fn arithmetic() {
-		println!("{}", Fraction::Neg(5_u8, 0) + Fraction::Pos(6_u8, 0));
 		assert_eq!("17/15",  format!("{}", Fraction::Pos(1_u8, 3) + Fraction::Pos(4, 5)));
 		assert_eq!("-7/15",  format!("{}", Fraction::Pos(1_u16, 3) - Fraction::Pos(4, 5)));
 		assert_eq!("8/6",    format!("{}", Fraction::Pos(4_u128, 6) + Fraction::Pos(2, 3)));
 		assert_eq!("112/6",  format!("{}", Fraction::Pos(8_u8, 3) * Fraction::Pos(14, 2)));
 		assert_eq!("-10/50", format!("{}", Fraction::Neg(1_u8, 10) / Fraction::Pos(5, 10)));
+		assert_eq!("2/0",    format!("{}", Fraction::Neg(4_u8, 0) + Fraction::Pos(6_u8, 0)));
 	}
 	
 	#[test]
