@@ -350,6 +350,24 @@ impl<T: FracTerm> From<Frac<T>> for f64 {
 	}
 }
 
+impl<'a, T: FracTerm> From<&'a mut Frac<T>> for (&'a mut T, &'a mut T) {
+	fn from(value: &'a mut Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(ref mut n, ref mut d) => (n, d),
+			Frac::Neg(ref mut n, ref mut d) => (n, d),
+		}
+	}
+}
+
+impl<T: FracTerm> From<Frac<T>> for (T, T) {
+	fn from(value: Frac<T>) -> Self {
+		match value {
+			Frac::Pos(n, d) => (n, d),
+			Frac::Neg(n, d) => (n, d),
+		}
+	}
+}
+
 impl<T: FracTerm> From<&Frac<T>> for (T, T) {
 	fn from(value: &Frac<T>) -> Self {
 		match *value {
@@ -359,9 +377,12 @@ impl<T: FracTerm> From<&Frac<T>> for (T, T) {
 	}
 }
 
-impl<T: FracTerm> From<Frac<T>> for (T, T) {
-	fn from(value: Frac<T>) -> Self {
-		<(T, T)>::from(&value)
+impl<T: FracTerm> From<&mut Frac<T>> for (T, T) {
+	fn from(value: &mut Frac<T>) -> Self {
+		match *value {
+			Frac::Pos(n, d) => (n, d),
+			Frac::Neg(n, d) => (n, d),
+		}
 	}
 }
 
