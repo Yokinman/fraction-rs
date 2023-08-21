@@ -21,13 +21,11 @@
 //! 
 //! for n in 1..=100 {
 //! for d in 1..=100 {
-//! 
-//! let n = n as f64;
-//! let d = d as f64;
-//! let v = <f64>::from(Frac::<u64>::from(n/d));
-//! assert!(v > (n-1.0)/d);
-//! assert!(v < (n+1.0)/d);
-//! 
+//!     let n = n as f64;
+//!     let d = d as f64;
+//!     let v = <f64>::from(Frac::<u64>::from(n/d));
+//!     assert!(v > (n-1.0)/d);
+//!     assert!(v < (n+1.0)/d);
 //! }}
 //! ```
 //! 
@@ -87,19 +85,19 @@
 //! for c in 0..MAX {
 //! for d in 0..MAX {
 //! 
-//! let (x, y) = if b == d {
-//!     (a as u16, c as u16)
-//! } else {
-//!     ((a as u16)*(d as u16), (c as u16)*(b as u16))
-//! };
-//! 
-//! assert_eq!(Frac::Pos(a,b).cmp(&Frac::Pos(c,d)), x.cmp(&y));
-//! assert_eq!(Frac::Neg(a,b).cmp(&Frac::Neg(c,d)), y.cmp(&x));
-//! if (x, y) == (0, 0) {
-//!     assert_eq!(Frac::Pos(a,b), Frac::Neg(c,d));
-//! } else {
-//!     assert!(Frac::Pos(a,b) > Frac::Neg(c,d));
-//! }
+//!     let (x, y) = if b == d {
+//!         (a as u16, c as u16)
+//!     } else {
+//!         ((a as u16)*(d as u16), (c as u16)*(b as u16))
+//!     };
+//!     
+//!     assert_eq!(Frac::Pos(a,b).cmp(&Frac::Pos(c,d)), x.cmp(&y));
+//!     assert_eq!(Frac::Neg(a,b).cmp(&Frac::Neg(c,d)), y.cmp(&x));
+//!     if (x, y) == (0, 0) {
+//!         assert_eq!(Frac::Pos(a,b), Frac::Neg(c,d));
+//!     } else {
+//!         assert!(Frac::Pos(a,b) > Frac::Neg(c,d));
+//!     }
 //! 
 //! }}}}
 //! ```
@@ -125,10 +123,13 @@
 //! - `A/B - C = (A-(B*C))/B`
 //! - `A/B * C = (A*C)/B`
 //! - `A/B / C = A/(B*C)`
+//  - `A/B ^ C = (A^C)/(B^C)`
+//! 
 //! - `C + A/B = (A+(B*C))/B`
 //! - `C - A/B = ((B*C)-A)/B`
 //! - `C * A/B = (A*C)/B`
 //! - `C / A/B = (B*C)/A`
+//  - `C ^ A/B = (C^A)^(1/B)`
 //! 
 //! ```
 //! use fraction::Frac;
@@ -137,7 +138,7 @@
 //! assert_eq!(Frac::<u16>::Pos(16, 100), Frac::Pos(2, 100) * 8);
 //! assert_eq!(Frac::<u16>::Pos(2, 1000), Frac::Pos(2, 100) / 10);
 //! assert_eq!(Frac::<u16>::Pos(1000, 1), 1 / Frac::Pos(1, 1000));
-//! ``` 
+//! ```
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
