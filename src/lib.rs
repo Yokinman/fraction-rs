@@ -232,32 +232,32 @@ impl<T: FracTerm + Ord> PartialEq for Frac<T> {
 }
 
 impl<T: FracTerm> Add for Frac<T> {
-	type Output = Self;
-	fn add(self, rhs: Frac<T>) -> Self {
+	type Output = Frac<T>;
+	fn add(self, rhs: Frac<T>) -> Frac<T> {
 		self.checked_add(rhs)
 			.expect("overflow when adding fractions")
 	}
 }
 
 impl<T: FracTerm> Sub for Frac<T> {
-	type Output = Self;
-	fn sub(self, rhs: Frac<T>) -> Self {
+	type Output = Frac<T>;
+	fn sub(self, rhs: Frac<T>) -> Frac<T> {
 		self.checked_sub(rhs)
 			.expect("overflow when subtracting fractions")
 	}
 }
 
 impl<T: FracTerm> Mul for Frac<T> {
-	type Output = Self;
-	fn mul(self, rhs: Frac<T>) -> Self {
+	type Output = Frac<T>;
+	fn mul(self, rhs: Frac<T>) -> Frac<T> {
 		self.checked_mul(rhs)
 			.expect("overflow when multiplying fractions")
 	}
 }
 
 impl<T: FracTerm> Div for Frac<T> {
-	type Output = Self;
-	fn div(self, rhs: Frac<T>) -> Self {
+	type Output = Frac<T>;
+	fn div(self, rhs: Frac<T>) -> Frac<T> {
 		self.checked_div(rhs)
 			.expect("overflow when dividing fractions")
 	}
@@ -274,9 +274,8 @@ impl<T: FracTerm> Neg for Frac<T> {
 }
 
 impl<T: FracTerm> Mul<i32> for Frac<T> {
-	type Output = Self;
-	fn mul(mut self, rhs: i32) -> Self {
-		let (n, _) = <(&mut T, _)>::from(&mut self);
+	type Output = Frac<T>;
+	fn mul(mut self, rhs: i32) -> Frac<T> {
 		let (n, _) = (&mut self).into();
 		
 		*n = n.checked_mul(T::from_f64(rhs.abs() as f64))
@@ -298,9 +297,8 @@ impl<T: FracTerm> Mul<Frac<T>> for i32 {
 }
 
 impl<T: FracTerm> Div<i32> for Frac<T> {
-	type Output = Self;
-	fn div(mut self, rhs: i32) -> Self {
-		let (_, d) = <(_, &mut T)>::from(&mut self);
+	type Output = Frac<T>;
+	fn div(mut self, rhs: i32) -> Frac<T> {
 		let (_, d) = (&mut self).into();
 		
 		*d = d.checked_mul(T::from_f64(rhs.abs() as f64))
