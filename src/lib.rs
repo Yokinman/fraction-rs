@@ -214,21 +214,21 @@ pub enum Frac<T: FracTerm> {
 }
 
 impl<T: FracTerm> Frac<T> {
-	pub fn numer(&self) -> T {
-		match *self {
+	pub fn numer(self) -> T {
+		match self {
 			Frac::Pos(n, _) => n,
 			Frac::Neg(n, _) => n,
 		}
 	}
 	
-	pub fn denom(&self) -> T {
-		match *self {
+	pub fn denom(self) -> T {
+		match self {
 			Frac::Pos(_, d) => d,
 			Frac::Neg(_, d) => d,
 		}
 	}
 	
-	pub fn signum(&self) -> i32 {
+	pub fn signum(self) -> i32 {
 		match self {
 			Frac::Pos(..) =>  1,
 			Frac::Neg(..) => -1,
@@ -256,26 +256,25 @@ impl<T: FracTerm> Frac<T> {
 		}
 	}
 	
-	pub fn is_sign_positive(&self) -> bool {
+	pub fn is_sign_positive(self) -> bool {
 		match self {
 			Frac::Pos(..) => true,
 			Frac::Neg(..) => false,
 		}
 	}
 	
-	pub fn is_sign_negative(&self) -> bool {
+	pub fn is_sign_negative(self) -> bool {
 		match self {
 			Frac::Pos(..) => false,
 			Frac::Neg(..) => true,
 		}
 	}
 	
-	pub fn recip(mut self) -> Self {
-		match &mut self {
-			Frac::Pos(n, d) => std::mem::swap(n, d),
-			Frac::Neg(n, d) => std::mem::swap(n, d),
+	pub fn recip(self) -> Self {
+		match self {
+			Frac::Pos(n, d) => Frac::Pos(d, n),
+			Frac::Neg(n, d) => Frac::Neg(d, n),
 		}
-		self
 	}
 	
 	pub fn checked_add(self, other: Frac<T>) -> Option<Frac<T>> {
