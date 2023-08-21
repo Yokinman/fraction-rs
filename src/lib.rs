@@ -166,35 +166,13 @@ impl<T: FracTerm> Default for Frac<T> {
 	}
 }
 
-impl<T: FracTerm> PartialEq<Frac<T>> for Frac<T> {
-	fn eq(&self, other: &Frac<T>) -> bool {
-		self.partial_cmp(other) == Some(Ordering::Equal)
-	}
-}
-
-impl<T: FracTerm + PartialOrd> PartialOrd<Frac<T>> for Frac<T> {
-	//! - 0/0 != 0/0
-	//! - A/N <> B/N === A <> B
-	//! - A/B <> C/D === AD <> CB
-	
-	fn partial_cmp(&self, other: &Frac<T>) -> Option<Ordering> {
+impl<T: FracTerm + Ord> Ord for Frac<T> {
+	fn cmp(&self, other: &Frac<T>) -> Ordering {
 		let (mut s_n, mut s_d, s_s) = self.into();
 		let (mut o_n, mut o_d, o_s) = other.into();
 		
-		 // Zero Comparison (±0/0 != ±0/0, ±0/A == ±0/B)
-		let zero = T::from_f64(0.0);
-		if s_n == zero && o_n == zero {
-			return if s_n == s_d || o_n == o_d {
-				None
-			} else {
-				Some(Ordering::Equal)
-			}
-		}
-		
-		 // Sign Comparison (-A/B <= +C/D):
-		if s_s != o_s {
-			return s_s.partial_cmp(&o_s)
-		}
+		// 1. `A/B <> C/B === A <> C`
+		// 2. `A/B <> C/D === AD <> CB`
 		
 		 // Negative Swap (-A/B <> -C/D === A/B <> C/D):
 		if s_s.is_negative() {
@@ -202,12 +180,25 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Frac<T>> for Frac<T> {
 			std::mem::swap(&mut s_d, &mut o_d);
 		}
 		
-		 // Numerator Comparison (A/N <> B/N === A <> B):
-		if s_d == o_d {
-			return s_n.partial_cmp(&o_n)
+		 // Normal Comparison:
+		let (x, y) = if s_d == o_d {
+			(Some(s_n), Some(o_n))
+		} else {
+			(s_n.checked_mul(o_d), o_n.checked_mul(s_d))
+		};
+		if let (Some(x), Some(y)) = (x, y) {
+			let z = T::from_f64(0.0);
+			return if s_s != o_s && (x, y) != (z, z) {
+				s_s.cmp(&o_s)
+			} else {
+				x.cmp(&y)
+			}
+		}
+		if s_s != o_s {
+			return s_s.cmp(&o_s)
 		}
 		
-		 // Continued Comparison:
+		 // Overflow - Compare Continued Fraction:
 		loop {
 			// 22/7 <> 18/5 => 3[1/7] <> 3[3/5] (3=3, try remainder reciprocals)
 			//  5/3 <>  7/1 => 1[1/3] <> 7[0/1] (1<7 === 22/7 < 18/5)
@@ -215,14 +206,28 @@ impl<T: FracTerm + PartialOrd> PartialOrd<Frac<T>> for Frac<T> {
 			let o_r = o_n.checked_div(o_d);
 			if let (Some(s_r), Some(o_r)) = (s_r, o_r) {
 				if s_r != o_r {
-					break s_r.partial_cmp(&o_r)
+					break s_r.cmp(&o_r)
 				}
 			} else {
-				break o_r.partial_cmp(&s_r)
+				break o_r.cmp(&s_r)
 			}
-			s_n = std::mem::replace(&mut o_d, s_n.checked_rem(s_d)?);
-			o_n = std::mem::replace(&mut s_d, o_n.checked_rem(s_n)?);
+			s_n = std::mem::replace(&mut o_d, s_n.checked_rem(s_d).unwrap());
+			o_n = std::mem::replace(&mut s_d, o_n.checked_rem(s_n).unwrap());
 		}
+	}
+}
+
+impl<T: FracTerm + Ord> Eq for Frac<T> {}
+
+impl<T: FracTerm + Ord> PartialOrd for Frac<T> {
+	fn partial_cmp(&self, other: &Frac<T>) -> Option<Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl<T: FracTerm + Ord> PartialEq for Frac<T> {
+	fn eq(&self, other: &Frac<T>) -> bool {
+		self.cmp(other) == Ordering::Equal
 	}
 }
 
@@ -577,7 +582,7 @@ mod tests {
 		assert!(Frac::Pos(1_u8, 0) > Frac::Pos(1_u8, 1));
 		assert_eq!(Frac::Pos(0_u8, 1), Frac::Pos(0_u8, 2));
 		assert_eq!(Frac::Pos(0_u8, 1), Frac::Neg(0_u8, 1));
-		assert_ne!(Frac::Pos(0_u8, 0), Frac::Pos(0_u8, 0));
-		assert_ne!(Frac::Pos(0_u8, 0), Frac::Neg(0_u8, 0));
+		assert_eq!(Frac::Pos(0_u8, 0), Frac::Pos(0_u8, 0));
+		assert_eq!(Frac::Pos(0_u8, 0), Frac::Neg(0_u8, 0));
 	}
 }
