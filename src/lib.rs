@@ -1,4 +1,143 @@
 //! Representing real numbers as fractions using integer types.
+//! 
+//! # Conversion
+//! 
+//! To convert a floating-point number to the closest representable fraction,
+//! use the associated functions `from` or `into`.
+//! 
+//! ```
+//! use fraction::Frac;
+//! assert_eq!(Frac::<u8>::Pos(1, 3), Frac::from(0.333_f64));
+//! assert_eq!(Frac::<u16>::Pos(333, 1000), Frac::from(0.333_f64));
+//! assert_eq!(Frac::<u64>::Neg(50, 1), Frac::from(-50_f32));
+//! assert_eq!(Frac::<u8>::Pos(22, 7), Frac::from(std::f64::consts::PI));
+//! ```
+//! 
+//! To convert a fraction to the closest representable floating-point number,
+//! use the associated functions `from` or `into`.
+//! 
+//! ```
+//! use fraction::Frac;
+//! 
+//! for n in 1..=100 {
+//! for d in 1..=100 {
+//! 
+//! let n = n as f64;
+//! let d = d as f64;
+//! let v = <f64>::from(Frac::<u64>::from(n/d));
+//! assert!(v > (n-1.0)/d);
+//! assert!(v < (n+1.0)/d);
+//! 
+//! }}
+//! ```
+//! 
+//! Special cases:
+//! 
+//! ```
+//! use fraction::Frac;
+//! assert_eq!("0/0",  format!("{}", Frac::<u8>::from(f64::NAN)));
+//! assert_eq!("0/1",  format!("{}", Frac::<u8>::from(0.0)));
+//! assert_eq!("1/0",  format!("{}", Frac::<u8>::from(f64::INFINITY)));
+//! assert_eq!("-0/1", format!("{}", Frac::<u8>::from(-0.0)));
+//! assert_eq!("-1/0", format!("{}", Frac::<u8>::from(-f64::INFINITY)));
+//! ```
+//! 
+//! Can also convert a `Frac<T>` to a form with a larger integer type.
+//! 
+//! ```
+//! use fraction::Frac;
+//! let frac = Frac::<u8>::Pos(15, 30);
+//! assert_eq!(Frac::<u16>::from(frac), Frac::<u16>::Pos(15, 30));
+//! assert_eq!(Frac::<u64>::from(frac), Frac::<u64>::Pos(15, 30));
+//! ```
+//! 
+//! # Destructuring
+//! 
+//! ```
+//! use fraction::Frac;
+//! let mut f = Frac::<u8>::Neg(1, 16);
+//! assert_eq!((1, 16), f.into());
+//! assert_eq!((1, 16, -1_i32), f.into());
+//! 
+//! let (n, d) = (&mut f).into();
+//! *n = 2;
+//! assert_eq!(f, Frac::Neg(2, 16));
+//! ```
+//! 
+//! # Comparison
+//! 
+//! Fractions are compared under the two following principles:
+//! 
+//! 1. `A/B <> C/B === A <> C`.
+//! 2. `A/B <> C/D === AD <> CB`, if `B != D`.
+//! 
+//! Notable side effects:
+//! 
+//! - `0/A == 0/B`; all zeroes are equivalent.
+//! - `A/0 <> B/0 === A <> B`; infinities are ordered.
+//! - `0/0 <> N/0 === 0 <> N`; undefined is between both signed infinities.
+//! - `0/0 == A/B`, if `B>0`; undefined is equivalent to itself & any number.
+//! 
+//! ```
+//! use fraction::Frac;
+//! const MAX: u8 = 32;
+//! 
+//! for a in 0..MAX {
+//! for b in 0..MAX {
+//! for c in 0..MAX {
+//! for d in 0..MAX {
+//! 
+//! let (x, y) = if b == d {
+//!     (a as u16, c as u16)
+//! } else {
+//!     ((a as u16)*(d as u16), (c as u16)*(b as u16))
+//! };
+//! 
+//! assert_eq!(Frac::Pos(a,b).cmp(&Frac::Pos(c,d)), x.cmp(&y));
+//! assert_eq!(Frac::Neg(a,b).cmp(&Frac::Neg(c,d)), y.cmp(&x));
+//! if (x, y) == (0, 0) {
+//!     assert_eq!(Frac::Pos(a,b), Frac::Neg(c,d));
+//! } else {
+//!     assert!(Frac::Pos(a,b) > Frac::Neg(c,d));
+//! }
+//! 
+//! }}}}
+//! ```
+//! 
+//! # Arithmetic
+//! 
+//! - `A/B + C/D = (A+C)/(B*D/gcd(B,D))`
+//! - `A/B - C/D = (A-C)/(B*D/gcd(B,D))`
+//! - `A/B * C/D = (A*C)/(B*D)`
+//! - `A/B / C/D = (A*D)/(B*C)`
+//! - `-A/B = (-A)/B`
+//! 
+//! ```
+//! use fraction::Frac;
+//! assert_eq!(Frac::<u8>::Pos(17, 20), Frac::Pos(1, 10) + Frac::Pos(3, 4));
+//! assert_eq!(Frac::<u8>::Neg(13, 20), Frac::Pos(1, 10) - Frac::Pos(3, 4));
+//! assert_eq!(Frac::<u16>::Pos(3, 40), Frac::Pos(1, 10) * Frac::Pos(3, 4));
+//! assert_eq!(Frac::<u16>::Pos(4, 30), Frac::Pos(1, 10) / Frac::Pos(3, 4));
+//! assert_eq!(Frac::<u16>::Neg(1, 10), -Frac::Pos(1, 10));
+//! ```
+//! 
+//! - `A/B + C = (A+(B*C))/B`
+//! - `A/B - C = (A-(B*C))/B`
+//! - `A/B * C = (A*C)/B`
+//! - `A/B / C = A/(B*C)`
+//! - `C + A/B = (A+(B*C))/B`
+//! - `C - A/B = ((B*C)-A)/B`
+//! - `C * A/B = (A*C)/B`
+//! - `C / A/B = (B*C)/A`
+//! 
+//! ```
+//! use fraction::Frac;
+//! assert_eq!(Frac::<u8>::Pos(101, 100), Frac::Pos(1, 100) + 1);
+//! assert_eq!(Frac::<u8>::Neg(199, 100), Frac::Pos(1, 100) - 2);
+//! assert_eq!(Frac::<u16>::Pos(16, 100), Frac::Pos(2, 100) * 8);
+//! assert_eq!(Frac::<u16>::Pos(2, 1000), Frac::Pos(2, 100) / 10);
+//! assert_eq!(Frac::<u16>::Pos(1000, 1), 1 / Frac::Pos(1, 1000));
+//! ``` 
 
 use std::cmp::Ordering;
 use std::fmt::{Debug, Display, Formatter};
@@ -186,7 +325,7 @@ impl<T: FracTerm + Ord> Ord for Frac<T> {
 		let (mut o_n, mut o_d, o_s) = (*other).into();
 		
 		// 1. `A/B <> C/B === A <> C`
-		// 2. `A/B <> C/D === AD <> CB`
+		// 2. `A/B <> C/D === AD <> CB`, if `B != D`
 		
 		 // Negative Swap (-A/B <> -C/D === A/B <> C/D):
 		if s_s.is_negative() {
@@ -350,26 +489,12 @@ impl<T: FracTerm> Div<Frac<T>> for i32 {
 }
 
 impl<T: FracTerm> From<f32> for Frac<T> {
-	//! Generates the closest fraction within the integer type's bounds.
-	
 	fn from(value: f32) -> Frac<T> {
 		Frac::from(value as f64)
 	}
 }
 
 impl<T: FracTerm> From<f64> for Frac<T> {
-	//! Generates the closest fraction within the integer type's bounds.
-	//! 
-	//! # Examples
-	//! 
-	//! ```
-	//! use fraction::Frac;
-	//! assert_eq!("1/3",      format!("{}", Frac::<u8> ::from(0.333_f64)));
-	//! assert_eq!("333/1000", format!("{}", Frac::<u16>::from(0.333_f64)));
-	//! assert_eq!("-50/1",    format!("{}", Frac::<u64>::from(-50_f32)));
-	//! assert_eq!("22/7",     format!("{}", Frac::<u8> ::from(std::f64::consts::PI)));
-	//! ```
-	
 	fn from(mut num: f64) -> Frac<T> {
 		// # Algorithm
 		// 
@@ -391,6 +516,13 @@ impl<T: FracTerm> From<f64> for Frac<T> {
 		
 		if num.is_nan() {
 			return Frac::Pos(T::from_f64(0.0), T::from_f64(0.0))
+		}
+		if num.is_infinite() {
+			return if num.is_sign_positive() {
+				Frac::Pos(T::from_f64(1.0), T::from_f64(0.0))
+			} else {
+				Frac::Neg(T::from_f64(1.0), T::from_f64(0.0))
+			}
 		}
 		
 		let mut term_list: Vec<Frac<T>> = Vec::with_capacity(T::MAX_TERM_COUNT);
@@ -512,71 +644,5 @@ impl<T: FracTerm + Display> Display for Frac<T> {
 			Frac::Pos(n, d) => write!(f,  "{}/{}", n, d),
 			Frac::Neg(n, d) => write!(f, "-{}/{}", n, d),
 		}
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-	
-	#[test]
-	fn conversion() {
-		fn assert<I: FracTerm + Display>() {
-			for n in 1..=100 {
-				for d in 1..=100 {
-					let n: f64 = n.into();
-					let d: f64 = d.into();
-					let f = Frac::<I>::from(n/d);
-					// println!("{n}/{d} -> {f}, {}", n/d);
-					let v: f64 = f.into();
-					assert!(v > (n-1.0)/d);
-					assert!(v < (n+1.0)/d);
-				}
-			}
-			assert_eq!(<f64>::from(Frac::<I>::from(f64::INFINITY)), I::from_f64(f64::INFINITY).to_f64());
-			assert_eq!(<f64>::from(Frac::<I>::from(f64::NEG_INFINITY)), -I::from_f64(f64::INFINITY).to_f64());
-			assert!(<f64>::from(Frac::<I>::from(f64::NAN)).is_nan());
-		}
-		assert::<u8>();
-		assert::<u64>();
-		assert::<u128>();
-	}
-	
-	#[test]
-	fn arithmetic() {
-		assert_eq!("17/15",  format!("{}", Frac::Pos(1_u8, 3) + Frac::Pos(4, 5)));
-		assert_eq!("-7/15",  format!("{}", Frac::Pos(1_u16, 3) - Frac::Pos(4, 5)));
-		assert_eq!("8/6",    format!("{}", Frac::Pos(4_u128, 6) + Frac::Pos(2, 3)));
-		assert_eq!("112/6",  format!("{}", Frac::Pos(8_u8, 3) * Frac::Pos(14, 2)));
-		assert_eq!("-10/50", format!("{}", Frac::Neg(1_u8, 10) / Frac::Pos(5, 10)));
-		assert_eq!("2/0",    format!("{}", Frac::Neg(4_u8, 0) + Frac::Pos(6_u8, 0)));
-	}
-	
-	#[test]
-	fn scalar_mul() {
-		assert_eq!("-34/15", format!("{}", -2 * Frac::Pos(17_u8, 15)));
-		assert_eq!("-30/17", format!("{}", -2 / Frac::Pos(17_u8, 15)));
-		assert_eq!("-17/30", format!("{}", Frac::Pos(17_u8, 15) / -2));
-		assert_eq!("17/0",   format!("{}", Frac::Pos(17_u8, 15) / 0));
-		assert_eq!("-0/15",  format!("{}", Frac::Neg(17_u8, 15) * 0));
-	}
-	
-	#[test]
-	fn comparison() {
-		assert_eq!(Frac::Pos(5_u8, 5), Frac::Pos(5_u8, 5));
-		assert_eq!(Frac::Neg(1_u8, 10), Frac::Neg(2_u8, 20));
-		assert!(Frac::Pos(1_u8, 10) > Frac::Neg(2_u8, 20));
-		assert!(Frac::Neg(1_u8, 10) < Frac::Pos(2_u8, 20));
-		assert!(Frac::Neg(1_u8, 10) > Frac::Neg(3_u8, 20));
-		assert!(Frac::Neg(1_u8, 10) < Frac::Neg(1_u8, 20));
-		assert_eq!(Frac::Pos(u128::MAX - 1, u128::MAX), Frac::Pos(u128::MAX - 1, u128::MAX));
-		assert!(Frac::Pos(u128::MAX - 1, u128::MAX) < Frac::Pos(u128::MAX - 1, u128::MAX - 1));
-		assert_eq!(Frac::Pos(1_u8, 0), Frac::Pos(1_u8, 0));
-		assert!(Frac::Pos(2_u8, 0) > Frac::Pos(1_u8, 0));
-		assert!(Frac::Pos(1_u8, 0) > Frac::Pos(1_u8, 1));
-		assert_eq!(Frac::Pos(0_u8, 1), Frac::Pos(0_u8, 2));
-		assert_eq!(Frac::Pos(0_u8, 1), Frac::Neg(0_u8, 1));
-		assert_eq!(Frac::Pos(0_u8, 0), Frac::Pos(0_u8, 0));
-		assert_eq!(Frac::Pos(0_u8, 0), Frac::Neg(0_u8, 0));
 	}
 }
