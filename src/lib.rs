@@ -44,6 +44,20 @@ macro_rules! impl_fraction_term {
 			fn checked_div(self, rhs: Self) -> Option<Self> { self.checked_div(rhs) }
 			fn checked_rem(self, rhs: Self) -> Option<Self> { self.checked_rem(rhs) }
 		}
+		
+		impl Add<Frac<Self>> for $type {
+			type Output = Frac<Self>;
+			fn add(self, rhs: Frac<Self>) -> Frac<Self> {
+				rhs + self
+			}
+		}
+		
+		impl Sub<Frac<Self>> for $type {
+			type Output = Frac<Self>;
+			fn sub(self, rhs: Frac<Self>) -> Frac<Self> {
+				-rhs + self
+			}
+		}
 	}
 }
 
@@ -273,6 +287,22 @@ impl<T: FracTerm> Neg for Frac<T> {
 	}
 }
 
+impl<T: FracTerm> Add<T> for Frac<T> {
+	type Output = Frac<T>;
+	fn add(self, rhs: T) -> Frac<T> {
+		self.checked_add(Frac::Pos(rhs, T::from_f64(1.0)))
+			.expect("overflow when adding integer to fraction")
+	}
+}
+
+impl<T: FracTerm> Sub<T> for Frac<T> {
+	type Output = Frac<T>;
+	fn sub(self, rhs: T) -> Frac<T> {
+		self.checked_add(Frac::Neg(rhs, T::from_f64(1.0)))
+			.expect("overflow when subtracting integer from fraction")
+	}
+}
+
 impl<T: FracTerm> Mul<i32> for Frac<T> {
 	type Output = Frac<T>;
 	fn mul(mut self, rhs: i32) -> Frac<T> {
@@ -315,7 +345,7 @@ impl<T: FracTerm> Div<i32> for Frac<T> {
 impl<T: FracTerm> Div<Frac<T>> for i32 {
 	type Output = Frac<T>;
 	fn div(self, rhs: Frac<T>) -> Frac<T> {
-		self * rhs.recip()
+		(rhs / self).recip()
 	}
 }
 
