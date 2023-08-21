@@ -168,8 +168,8 @@ impl<T: FracTerm> Default for Frac<T> {
 
 impl<T: FracTerm + Ord> Ord for Frac<T> {
 	fn cmp(&self, other: &Frac<T>) -> Ordering {
-		let (mut s_n, mut s_d, s_s) = self.into();
-		let (mut o_n, mut o_d, o_s) = other.into();
+		let (mut s_n, mut s_d, s_s) = (*self).into();
+		let (mut o_n, mut o_d, o_s) = (*other).into();
 		
 		// 1. `A/B <> C/B === A <> C`
 		// 2. `A/B <> C/D === AD <> CB`
@@ -277,6 +277,7 @@ impl<T: FracTerm> Mul<i32> for Frac<T> {
 	type Output = Self;
 	fn mul(mut self, rhs: i32) -> Self {
 		let (n, _) = <(&mut T, _)>::from(&mut self);
+		let (n, _) = (&mut self).into();
 		
 		*n = n.checked_mul(T::from_f64(rhs.abs() as f64))
 			.expect("overflow when multiplying fraction by scalar");
@@ -300,6 +301,7 @@ impl<T: FracTerm> Div<i32> for Frac<T> {
 	type Output = Self;
 	fn div(mut self, rhs: i32) -> Self {
 		let (_, d) = <(_, &mut T)>::from(&mut self);
+		let (_, d) = (&mut self).into();
 		
 		*d = d.checked_mul(T::from_f64(rhs.abs() as f64))
 			.expect("overflow when dividing fraction by scalar");
@@ -440,45 +442,9 @@ impl<T: FracTerm> From<Frac<T>> for (T, T) {
 	}
 }
 
-impl<T: FracTerm> From<&Frac<T>> for (T, T) {
-	fn from(value: &Frac<T>) -> Self {
-		match *value {
-			Frac::Pos(n, d) => (n, d),
-			Frac::Neg(n, d) => (n, d),
-		}
-	}
-}
-
-impl<T: FracTerm> From<&mut Frac<T>> for (T, T) {
-	fn from(value: &mut Frac<T>) -> Self {
-		match *value {
-			Frac::Pos(n, d) => (n, d),
-			Frac::Neg(n, d) => (n, d),
-		}
-	}
-}
-
 impl<T: FracTerm> From<Frac<T>> for (T, T, i32) {
 	fn from(value: Frac<T>) -> Self {
 		match value {
-			Frac::Pos(n, d) => (n, d,  1),
-			Frac::Neg(n, d) => (n, d, -1),
-		}
-	}
-}
-
-impl<T: FracTerm> From<&Frac<T>> for (T, T, i32) {
-	fn from(value: &Frac<T>) -> Self {
-		match *value {
-			Frac::Pos(n, d) => (n, d,  1),
-			Frac::Neg(n, d) => (n, d, -1),
-		}
-	}
-}
-
-impl<T: FracTerm> From<&mut Frac<T>> for (T, T, i32) {
-	fn from(value: &mut Frac<T>) -> Self {
-		match *value {
 			Frac::Pos(n, d) => (n, d,  1),
 			Frac::Neg(n, d) => (n, d, -1),
 		}
